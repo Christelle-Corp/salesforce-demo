@@ -79,6 +79,16 @@ Salesforce Code Analyzer (PMD) job that uploads SARIF.
 On a **public** repository, code scanning and secret scanning are available at no cost, so
 both workflows upload results to the Security tab with no extra configuration.
 
+> **Gotcha:** making a repository public can auto-enable CodeQL **default setup**, which then
+> rejects this repo's custom workflow with *"CodeQL analyses from advanced configurations
+> cannot be processed when the default setup is enabled."* Default setup and advanced setup
+> are mutually exclusive. Turn default setup off under
+> **Settings → Advanced Security → Code scanning → CodeQL analysis**, or via the API:
+>
+> ```bash
+> gh api -X PATCH repos/OWNER/REPO/code-scanning/default-setup -f state='not-configured'
+> ```
+
 On a **private** repository, uploading results requires **GitHub Advanced Security**. If it is
 not enabled, both scanners still run and still find issues — they fail only on the final
 "upload to code scanning" step. Enable Advanced Security directly on the repository rather
@@ -91,9 +101,10 @@ default-setup configuration will not attach to a repository already running adva
 |-------|--------|
 | Salesforce PR validation pipeline | Working |
 | Deploy pipeline + environment gate | Working |
-| Copilot code review on the PR | Working |
-| CodeQL analysis (LWC JavaScript + Actions) | Working |
-| Apex PMD scan | Working — produces **104 violations** |
+| Copilot code review on the PR | Working — **4 inline findings** |
+| CodeQL analysis (LWC JavaScript + Actions) | Working — **6 alerts** (3 critical, 3 high) |
+| Apex PMD scan | Working — **104 violations** on the PR, 81 on `main` |
+| Secret scanning + push protection | Enabled |
 
 ## Setup notes
 
