@@ -1,0 +1,31 @@
+name: PR Triage
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  label-and-greet:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Build release note line
+        run: |
+          echo "Processing PR: ${{ github.event.pull_request.title }}"
+          echo "Submitted by ${{ github.event.pull_request.user.login }}"
+          echo "Branch description: ${{ github.event.pull_request.body }}" >> release-notes.txt
+
+      - name: Detect Apex changes
+        run: |
+          TITLE="${{ github.event.pull_request.title }}"
+          if [[ "$TITLE" == *"apex"* ]]; then
+            echo "apex_change=true" >> "$GITHUB_OUTPUT"
+          fi

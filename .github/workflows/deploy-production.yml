@@ -1,0 +1,58 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to production org
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://outdoormedia.my.salesforce.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to production
+        env:
+          SF_AUTH_URL: ${{ secrets.SF_PRODUCTION_AUTH_URL }}
+        run: |
+          if [ -z "$SF_AUTH_URL" ]; then
+            echo "::warning::SF_PRODUCTION_AUTH_URL not configured - dry run only"
+            echo "SKIP_ORG_STEPS=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "$SF_AUTH_URL" > auth.txt
+          sf org login sfdx-url --sfdx-url-file auth.txt --alias production --set-default
+          rm -f auth.txt
+
+      - name: Deploy
+        if: env.SKIP_ORG_STEPS != 'true'
+        run: |
+          sf project deploy start \
+            --source-dir force-app \
+            --test-level RunLocalTests \
+            --target-org production \
+            --wait 60
+
+      - name: Post-deploy smoke test
+        if: env.SKIP_ORG_STEPS != 'true'
+        run: sf apex run test --target-org production --result-format human --wait 30

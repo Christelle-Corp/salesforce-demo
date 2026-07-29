@@ -1,0 +1,16 @@
+# Code owners for Outdoor Media Salesforce delivery
+#
+# Every PR touching these paths needs review from the listed owner(s).
+# Pair this with a branch protection rule that requires CODEOWNERS review.
+
+# Default owner for everything
+*                                   @ChristelleJoseph
+
+# Apex business logic - platform team review required
+/force-app/main/default/classes/     @ChristelleJoseph
+
+# Anything touching payments or crypto - security review required
+/force-app/main/default/classes/PaymentGatewayService.cls    @ChristelleJoseph
+
+# CI/CD and deployment pipelines - release engineering review required
+/.github/workflows/                  @ChristelleJoseph

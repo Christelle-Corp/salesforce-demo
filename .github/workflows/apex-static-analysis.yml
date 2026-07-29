@@ -1,0 +1,61 @@
+name: Apex Static Analysis (Salesforce Code Analyzer)
+
+# CodeQL does not support Apex. Apex is scanned with Salesforce Code Analyzer (PMD)
+# and the results are uploaded as SARIF so they appear in the same Security tab.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  pmd-scan:
+    name: Scan Apex with PMD
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install Salesforce CLI and Code Analyzer
+        run: |
+          npm install --global @salesforce/cli
+          sf plugins install code-analyzer
+
+      - name: Run Code Analyzer on Apex
+        run: |
+          sf code-analyzer run \
+            --workspace "force-app/**/*.cls" \
+            --rule-selector "Recommended:pmd" \
+            --output-file apex-results.sarif \
+            --severity-threshold 5 || true
+
+      - name: Confirm SARIF produced
+        run: |
+          if [ ! -f apex-results.sarif ]; then
+            echo "No SARIF produced by Code Analyzer" >&2
+            exit 1
+          fi
+          echo "SARIF size: $(wc -c < apex-results.sarif) bytes"
+
+      - name: Upload SARIF to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: apex-results.sarif
+          category: apex-pmd

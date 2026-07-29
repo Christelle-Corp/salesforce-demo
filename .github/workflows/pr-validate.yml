@@ -1,0 +1,68 @@
+name: Salesforce PR Validation
+
+# Runs on every PR: validate-only deploy + Apex tests against a sandbox.
+# Nothing is deployed to production from this workflow.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate metadata and run Apex tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Salesforce CLI
+        run: npm install --global @salesforce/cli
+
+      - name: Authenticate to sandbox
+        env:
+          SF_AUTH_URL: ${{ secrets.SF_SANDBOX_AUTH_URL }}
+        run: |
+          if [ -z "$SF_AUTH_URL" ]; then
+            echo "::warning::SF_SANDBOX_AUTH_URL not configured - skipping org-dependent steps"
+            echo "SKIP_ORG_STEPS=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "$SF_AUTH_URL" > auth.txt
+          sf org login sfdx-url --sfdx-url-file auth.txt --alias sandbox --set-default
+          rm -f auth.txt
+
+      - name: Validate deploy (check-only)
+        if: env.SKIP_ORG_STEPS != 'true'
+        run: |
+          sf project deploy validate \
+            --source-dir force-app \
+            --test-level RunLocalTests \
+            --target-org sandbox \
+            --wait 60
+
+      - name: Apex test results summary
+        if: env.SKIP_ORG_STEPS != 'true'
+        run: sf apex run test --target-org sandbox --code-coverage --result-format human --wait 30
+
+  lint:
+    name: Lint LWC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: npm install --no-save eslint @lwc/eslint-plugin-lwc @babel/core @babel/eslint-parser
+      - name: Run ESLint
+        run: npx eslint force-app/main/default/lwc --ext .js || true
